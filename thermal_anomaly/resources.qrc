@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/plugins/thermal_anomaly" >
+        <file>icon.png</file>
+		<file>polygon_icon.png</file>
+		<file>fire.svg</file>
+    </qresource>
+</RCC>
