@@ -25,8 +25,8 @@ class DataRequest(QObject):
     def isAuthorized(self):
         return self.__accessToken is not None and self.__accessTokenExpires > QDateTime.currentDateTime()
 
-    def authRequest(self, client_id, client_secret, page=None, shooting_time=None, polygon=None):
-        print("Authorization...")
+    def authRequest(self, client_id, client_secret, page=None, date_from=None, date_to=None, polygon=None):
+        # print("Authorization...")
         self.authorizationStarted.emit()
         url = QUrl(AUTH_URL)
         url_query = QUrlQuery()
@@ -40,9 +40,9 @@ class DataRequest(QObject):
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json".encode())
         request.setUrl(url)
         self.__authReply = self.__manager.post(request, url_query.toString(QUrl.FullyEncoded).encode())
-        self.__authReply.finished.connect(lambda: self.__auth_request_finished(client_id, client_secret, page, shooting_time, polygon))
+        self.__authReply.finished.connect(lambda: self.__auth_request_finished(client_id, client_secret, page, date_from, date_to, polygon))
 
-    def __auth_request_finished(self, client_id, client_secret, page=None, shooting_time=None, polygon=None):
+    def __auth_request_finished(self, client_id, client_secret, page=None, date_from=None, date_to=None, polygon=None):
         if self.__authReply is None or self.__authReply.error() != QtNetwork.QNetworkReply.NoError:
             self.authorizationFinished.emit(False)
             print("auth error: " + self.__error_string(self.__authReply.error()))
@@ -60,42 +60,37 @@ class DataRequest(QObject):
                 self.__accessToken = json_string["access_token"]
                 self.__accessTokenExpires = QDateTime.currentDateTime().addSecs(int(json_string["expires_in"]))
                 # print("auth finished: ", json_string)
-                if shooting_time is not None and polygon is not None:
-                    self.__dataRequest(page, client_id, client_secret, shooting_time, polygon)
+                if date_from is not None and date_to is not None and polygon is not None:
+                    self.__dataRequest(page, client_id, client_secret, date_from, date_to, polygon)
             except ValueError as e:
                 print(e)
 
     def dataRequest(self, client_id, client_secret, date_from, date_to, polygon):
-        date_format = "yyyy-MM-dd"
-        shooting_time = "eq" + date_from.toString(date_format)
-        date_start = date_from.date().addDays(1)
-        date_end = date_to.date()
-        while date_start <= date_end:
-            shooting_time += "," + date_start.toString(date_format)
-            date_start = date_start.addDays(1)
+        self.__dataRequest(0, client_id, client_secret, date_from, date_to, polygon)
 
-        self.__dataRequest(0, client_id, client_secret, shooting_time, polygon)
-
-    def __dataRequest(self, page, client_id, client_secret, shooting_time, polygon):
-        print("page=", page)
-        print("accessTokenExpires=", self.__accessTokenExpires.toString(Qt.ISODate))
-
+    def __dataRequest(self, page, client_id, client_secret, date_from, date_to, polygon):
         if not self.isAuthorized():
-            self.authRequest(client_id, client_secret, page, shooting_time, polygon)
+            self.authRequest(client_id, client_secret, page, date_from, date_to, polygon)
             return
 
+        print("page=", page)
+        # print("accessTokenExpires=", self.__accessTokenExpires.toString(Qt.ISODate))
+
+        date_format = "yyyy-MM-ddThh:mm"
         url = QUrl(THERMAL_ANOMALY_URL)
         url_query = QUrlQuery()
         if polygon is not None:
             url_query.addQueryItem("polygon", polygon)
-        if shooting_time is not None:
-            url_query.addQueryItem("shooting", shooting_time)
+        if date_from is not None:
+            url_query.addQueryItem("shooting", "ge" + date_from.toString(date_format))
+        if date_to is not None:
+            url_query.addQueryItem("shooting", "le" + date_to.toString(date_format))
         # _take=1000&_skip=0&_lastUpdated=ge2020-04-08T00%3A00%3A00
         url_query.addQueryItem("_take", str(TAKE))
         url_query.addQueryItem("_skip", str(page * TAKE).zfill(1))
-        #url.setQuery(url_query)
+        # url.setQuery(url_query)
 
-        # print(url_query.queryItems())
+        print(url_query.queryItems())
 
         request = QtNetwork.QNetworkRequest()
         request.setRawHeader(b'Authorization', ('Bearer ' + self.__accessToken).encode())
@@ -104,9 +99,9 @@ class DataRequest(QObject):
         # print("request: ", url)
 
         self.dataReply = self.__manager.post(request, url_query.toString(QUrl.FullyEncoded).encode())
-        self.dataReply.finished.connect(lambda dr=self.dataReply: self.__data_request_finished(dr, client_id, client_secret, shooting_time, polygon))
+        self.dataReply.finished.connect(lambda dr=self.dataReply: self.__data_request_finished(dr, client_id, client_secret, date_from, date_to, polygon))
 
-    def __data_request_finished(self, data_reply, client_id, client_secret, shooting_time, polygon):
+    def __data_request_finished(self, data_reply, client_id, client_secret, date_from, date_to, polygon):
         # print("finished with: ", dataReply.url())
         result_items = []
         current_page = 1
@@ -116,7 +111,7 @@ class DataRequest(QObject):
         if data_reply is None or data_reply.error() != QtNetwork.QNetworkReply.NoError:
             msg = "data error: " + str(data_reply.error()) + ", " + self.__error_string(data_reply.error())
             print(msg)
-            print(data_reply.readAll())
+            print(str(data_reply.readAll(), 'utf-8'))
             print(data_reply.url())
             headers = data_reply.rawHeaderList()
             for key in headers:
@@ -139,7 +134,7 @@ class DataRequest(QObject):
                             print("pageCount=", json_string["pageCount"])
                             print("allItemsCount=", json_string["allItemsCount"])
                             print("currentPage=", json_string["currentPage"])
-                            self.__dataRequest(current_page, client_id, client_secret, shooting_time, polygon)
+                            self.__dataRequest(current_page, client_id, client_secret, date_from, date_to, polygon)
                         if page_count > 1:
                             msg = str(current_page) + "/" + str(page_count)
                 except ValueError as e:
@@ -151,9 +146,9 @@ class DataRequest(QObject):
                 print(data_reply.readAll())
                 print(data_reply.error())
         headers = data_reply.rawHeaderList()
-        for key in headers:
-            print(key, '->', data_reply.rawHeader(key))
-        self.printKnownHeaders(data_reply)
+        # for key in headers:
+        #    print(key, '->', data_reply.rawHeader(key))
+        # self.printKnownHeaders(data_reply)
         self.requestFinished.emit(result_items, (page_count > 1 and current_page > 1),
                                   (page_count == current_page),
                                   msg)

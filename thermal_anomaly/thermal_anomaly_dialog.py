@@ -151,7 +151,7 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
         if not checked:
             return
 
-        print("toggle")
+        # print("toggle")
         self.tool = DrawPolygon(self.iface, self.color)
 
         self.tool.selectionDone.connect(self.draw)
@@ -170,7 +170,7 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
             self.polygonButton.setChecked(polygon_on)
 
     def draw(self):
-        print("draw")
+        # print("draw")
         rb = self.tool.rb
         g = rb.asGeometry()
 
@@ -287,35 +287,27 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
             self._show_message("Некорректные данные", "Полигон поиска лежит за пределами зоны охвата")
             return
 
-        polygon = intersectionGeom.asWkt()
+        self.polygon = intersectionGeom.asWkt()
+        # print("polygon=", self.polygon)
 
         self.__toggle(False, True)
         self.getDataButton.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.__show_status_label(StatusMessageType.LOAD_STARTED)
-        self.dataRequest.dataRequest(clId, clSecret, dateTimeFrom, dateTimeTo, polygon)
+        self.dataRequest.dataRequest(clId, clSecret, dateTimeFrom, dateTimeTo, self.polygon)
 
     def showRequestResult(self, items, append, last, message):
-        print("showRequestResult")
+        # print("showRequestResult")
         if items is None or len(items) == 0:
             QApplication.restoreOverrideCursor()
             self.__show_status_label(StatusMessageType.LOAD_FINISHED)
             self.getDataButton.setEnabled(True)
-            msg = QMessageBox()
-            msg.setIcon(QMessageBox.Warning)
 
-            msg.setWindowTitle("Загузка завершена")
             if message is None or len(message) == 0:
-                msg.setText("По указанным параметрам ничего не найдено")
-            else:
-                msg.setText(message)
+                message = "По указанным параметрам ничего не найдено"
 
-            msg.addButton('Ок', QMessageBox.AcceptRole)
-            msg.exec()
+            self._show_message(self, "Загузка завершена", message)
             return
-
-        dateFrom = self.dateTimeEditFrom.dateTime()
-        dateTo = self.dateTimeEditTo.dateTime()
 
         color = QColor(237, 28, 36, 200)
         pjt = QgsProject.instance()
@@ -324,10 +316,10 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
         if not append:
             if layersList is not None and len(layersList) > 0:
                 pjt.removeMapLayer(layersList[0])
-                print("remove results")
+                # print("remove results")
             layersList.clear()
         if not append or layersList is None or len(layersList) == 0:
-            print("create layer")
+            # print("create layer")
             layer = QgsVectorLayer("Point?crs=EPSG:4326"
                                    "&field=coordinatesWKT:string(255)&field=shootingDateTime:string(255)"
                                    "&field=temperature:double(7)&field=pixelSizeInDirection:double(5)"
@@ -346,29 +338,24 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
 
         layer.startEditing()
         print("all items=", len(items))
-        validItems = 0
-        for point in items:
-            pointDateTime = QDateTime.fromString(point["updated"], Qt.ISODate)
+        poly = QgsGeometry.fromWkt(self.polygon)
 
-            if pointDateTime < dateFrom or pointDateTime > dateTo:
-                continue
-            validItems += 1
-            # print(point["updated"], "=>", pointDateTime.toString(Qt.ISODate))
-            # print("dateFrom", "=>", dateFrom.toString(Qt.ISODate))
-            # print("dateTo", "=>", dateTo.toString(Qt.ISODate))
+        for point in items:
             symbols = layer.renderer().symbols(QgsRenderContext())  # todo which context ?
             symbols[0].setColor(color)
             feature = QgsFeature()
-            feature.setGeometry(QgsGeometry.fromWkt(point["coordinatesWKT"]))
+            coord = QgsGeometry.fromWkt(point["coordinatesWKT"])
+            feature.setGeometry(coord)
             feature.setAttributes([point["coordinatesWKT"], point["shootingDateTime"], point["temperature"],
                                    point["pixelSizeInDirection"], point["pixelSizeAcross"], point["thermalPower"],
                                    point["baseResourceId"], point["id"], point["updated"], point["satellite"]])
             layer.dataProvider().addFeatures([feature])
+
+            # if not poly.contains(coord):
+            #     print("point out of poly: id =", point["id"], "coord =", point["coordinatesWKT"])
         layer.commitChanges()
-        print("valid items=", validItems)
 
         if not append:
-
             pjt.addMapLayer(layer, False)
             if pjt.layerTreeRoot().findGroup(self.tr(self.groupName)) is None:
                 pjt.layerTreeRoot().insertChildNode(0, QgsLayerTreeGroup(self.tr(self.groupName)))
