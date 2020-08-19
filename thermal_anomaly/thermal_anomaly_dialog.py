@@ -306,7 +306,7 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
             if message is None or len(message) == 0:
                 message = "По указанным параметрам ничего не найдено"
 
-            self._show_message(self, "Загузка завершена", message)
+            self._show_message("Загузка завершена", message)
             return
 
         color = QColor(237, 28, 36, 200)
