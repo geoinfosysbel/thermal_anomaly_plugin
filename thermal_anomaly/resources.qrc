@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <RCC>
     <qresource prefix="/plugins/thermal_anomaly" >
         <file>icon.png</file>
@@ -6,3 +7,13 @@
 		<file>fire.svg</file>
     </qresource>
 </RCC>
+=======
+<RCC>
+    <qresource prefix="/plugins/thermal_anomaly" >
+        <file>icon.png</file>
+        <file>icon-refresh.png</file>
+		<file>polygon_icon.png</file>
+		<file>fire.svg</file>
+    </qresource>
+</RCC>
+>>>>>>> 650fdacd946fb62a9eab3debb9e3914eb3fa741e
