@@ -111,13 +111,15 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
         self.init_dialog()
 
     def init_dialog(self):
-        date_time = QDateTime.currentDateTime()
+        date_time = QDateTime.currentDateTime().addSecs(10800)
         date = date_time.date()
         time = date_time.time()
         min_date_time = QDateTime(date, QTime(0, 0)).addYears(-1).toUTC()
         max_date_time = QDateTime(date, QTime(23, 59)).toUTC()
+        date_time_from = date_time.addDays(-1)
 
-        self.dateTimeEditFrom.setDateTime(QDateTime(date, QTime(0, 0)).toUTC())
+        self.dateTimeEditFrom.setDateTime(QDateTime(date_time_from.date(), date_time_from.time()).toUTC())
+        # self.dateTimeEditFrom.setDateTime(QDateTime(date, QTime(0, 0)).toUTC())
         self.dateTimeEditFrom.setDateTimeRange(min_date_time, max_date_time)
         self.dateTimeEditTo.setDateTime(QDateTime(date, time).toUTC())
         self.dateTimeEditTo.setDateTimeRange(min_date_time, max_date_time)
@@ -218,7 +220,7 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
         msg.addButton('Ок', QMessageBox.AcceptRole)
         msg.exec()
 
-    def getDataButtonClicked(self):
+    def getDataButtonClicked(self, update=False):
         clId = self.leClientID.text()
         clSecret = self.leClientSecret.text()
 
@@ -228,6 +230,11 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
 
         dateTimeFrom = self.dateTimeEditFrom.dateTime()
         dateTimeTo = self.dateTimeEditTo.dateTime()
+        
+        if update == True:
+            dateTimeTo = QDateTime.currentDateTime()
+            dateTimeFrom = dateTimeTo.addDays(-1)
+               
         if dateTimeFrom >= dateTimeTo:
             self._show_message("Некорректные данные", "Дата 'По' должна быть больше, чем дата 'С'")
             return
