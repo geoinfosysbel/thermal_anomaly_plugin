@@ -75,6 +75,8 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
     _clientId = "plugin_for_qgis"
     _clientSecret = "5a963ce5-580a-3992-a905-8388c406d113"
 
+    _updateFlag = False
+
     def __init__(self, iface, parent=None):
         """Constructor."""
         super(ThermalAnomalyDialog, self).__init__(parent)
@@ -221,6 +223,8 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
         msg.exec()
 
     def getDataButtonClicked(self, update=False):
+        self._updateFlag = update
+        
         clId = self.leClientID.text()
         clSecret = self.leClientSecret.text()
 
@@ -250,8 +254,12 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
 
         polygonGeometry = None
         if layersList is not None and len(layersList) > 0:
-            feat = list(layersList[0].getFeatures())[0]
-            if feat.hasGeometry():
+            feat = list(layersList[0].getFeatures())
+            
+            print(layersList[0].getFeatures())
+            if feat is not None:
+                feat = feat[0]
+            if feat is not None and feat.hasGeometry():
                 polygonGeometry = self.geomTransform(
                     feat.geometry(),
                     self.iface.mapCanvas().mapSettings().destinationCrs(),
@@ -305,7 +313,7 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
 
     def showRequestResult(self, items, append, last, message):
         # print("showRequestResult")
-        if items is None or len(items) == 0:
+        if (items is None or len(items) == 0) and self._updateFlag == False:
             QApplication.restoreOverrideCursor()
             self.__show_status_label(StatusMessageType.LOAD_FINISHED)
             self.getDataButton.setEnabled(True)
@@ -316,6 +324,8 @@ class ThermalAnomalyDialog(QtWidgets.QDialog, FORM_CLASS):
             self._show_message("Загузка завершена", message)
             return
 
+        self._updateFlag = False
+        
         color = QColor(237, 28, 36, 200)
         pjt = QgsProject.instance()
         layersList = pjt.mapLayersByName(self.resultsLayerName)
