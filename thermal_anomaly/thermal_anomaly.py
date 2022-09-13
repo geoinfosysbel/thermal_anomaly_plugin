@@ -162,6 +162,13 @@ class ThermalAnomaly:
             text=self.tr(u'Тепловые аномалии'),
             callback=self.run,
             parent=self.iface.mainWindow())
+        
+        icon_path_upd = ':/plugins/thermal_anomaly/icon-refresh.png'
+        self.add_action(
+            icon_path_upd,
+            text=self.tr(u'Обновить тепловые аномалии'),
+            callback=self.update,
+            parent=self.iface.mainWindow())
 
     def unload(self):
         """Removes the plugin menu item and icon from QGIS GUI."""
@@ -183,3 +190,16 @@ class ThermalAnomaly:
 
         # show the dialog
         self.dlg.show()
+
+    def update(self):
+        """Run method that performs all the real work"""
+        
+        # Create the dialog with elements (after translation) and keep reference
+        # Only create GUI ONCE in callback, so that it will only load when the plugin is started
+        if self.dlg is None:
+            self.dlg = ThermalAnomalyDialog(self.iface)
+        else:
+            self.dlg.init_dialog()
+
+        #show update
+        self.dlg.getDataButtonClicked(True)
